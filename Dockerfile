@@ -49,6 +49,7 @@ RUN export CFLAGS="-fstack-protector-strong -fpic -fpie -Os" \
           --enable-mbstring \
           --enable-phar \
           --enable-zip \
+          --with-curl \
           --with-openssl \
           --with-zlib \
     && make -j "$(getconf _NPROCESSORS_ONLN)" \
@@ -77,6 +78,7 @@ RUN set -euxo pipefail \
         git \
         libressl \
     && ./getcomposer.sh \
+    && composer global require hirak/prestissimo \
     && rm -rf \
         getcomposer.sh \
         /var/cache \
@@ -89,7 +91,7 @@ ENTRYPOINT ["composer"]
 CMD ["--ansi"]
 
 LABEL maintainer "Nev Stokes <mail@nevstokes.com>" \
-    description="PHP Composer" \
+    description="PHP Composer (with Prestissimo extension)" \
     org.label-schema.build-date=$BUILD_DATE \
     org.label-schema.schema-version="1.0" \
     org.label-schema.vcs-url=$VCS_URL \
