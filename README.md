@@ -5,14 +5,14 @@ This is an Alpine-based image with a custom build of PHP and configured solely f
 
 There are three tags available:
 
-**latest** — 20.8MB
+[![](https://images.microbadger.com/badges/version/nevstokes/composer.svg)](https://microbadger.com/images/nevstokes/composer "Get your own version badge on microbadger.com") [![](https://images.microbadger.com/badges/image/nevstokes/composer.svg)](https://microbadger.com/images/nevstokes/composer "Get your own image badge on microbadger.com")
 
 Basic Composer image with PHP built from the latest [source image](https://hub.docker.com/r/nevstokes/php-7.1/).
 
-**prestissimo** — 37.6MB
+[![](https://images.microbadger.com/badges/version/nevstokes/composer:prestissimo.svg)](https://microbadger.com/images/nevstokes/composer:prestissimo "Get your own version badge on microbadger.com") [![](https://images.microbadger.com/badges/image/nevstokes/composer:prestissimo.svg)](https://microbadger.com/images/nevstokes/composer:prestissimo "Get your own image badge on microbadger.com")
 
 Image as above but with `curl` added to PHP for running the installed [Prestissimo](https://github.com/hirak/prestissimo) Composer extension for much improved performance.
 
-**pgo**  — 37.6MB
+[![](https://images.microbadger.com/badges/version/nevstokes/composer:pgo.svg)](https://microbadger.com/images/nevstokes/composer:pgo "Get your own version badge on microbadger.com") [![](https://images.microbadger.com/badges/image/nevstokes/composer:pgo.svg)](https://microbadger.com/images/nevstokes/composer:pgo "Get your own image badge on microbadger.com")
 
 Same as the Prestissimo tag but with a [Profile Guided Optimised](https://software.intel.com/en-us/blogs/2015/10/09/pgo-let-it-go-php) build of PHP. This means that the build of this image will take substantially longer. This is really just an experiment; there isn't actually a noticeable improvement in terms of performance.
