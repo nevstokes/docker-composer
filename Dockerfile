@@ -88,7 +88,7 @@ WORKDIR /var/www
 ENTRYPOINT ["composer"]
 CMD ["--ansi"]
 
-LABEL maintainer "Nev Stokes <mail@nevstokes.com>" \
+LABEL maintainer="Nev Stokes <mail@nevstokes.com>" \
     description="PHP Composer" \
     org.label-schema.build-date=$BUILD_DATE \
     org.label-schema.schema-version="1.0" \
