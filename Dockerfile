@@ -10,7 +10,8 @@ COPY --from=src /php.tar.xz .
 RUN set -euxo pipefail
 
 # Requirements
-RUN apk update && apk add --no-cache \
+RUN echo '@community http://dl-cdn.alpinelinux.org/alpine/edge/community' >> /etc/apk/repositories \
+    && apk --update add --no-cache \
         autoconf \
         curl-dev \
         file \
@@ -22,7 +23,8 @@ RUN apk update && apk add --no-cache \
         pkgconf \
         re2c \
         xz \
-        zlib-dev
+        zlib-dev \
+        upx@community
 
 RUN mkdir -p $PHP_INI_DIR/conf.d \
     && mkdir -p /usr/src/php \
@@ -54,7 +56,8 @@ RUN export CFLAGS="-fstack-protector-strong -fpic -fpie -Os" \
     && make -j "$(getconf _NPROCESSORS_ONLN)" \
     && make install \
     && { find /usr/local/bin /usr/local/sbin -type f -perm +0111 -exec strip --strip-all '{}' + || true; } \
-    && make clean
+    && make clean \
+    && upx -9 /usr/local/bin/php
 
 
 # Clean slate
