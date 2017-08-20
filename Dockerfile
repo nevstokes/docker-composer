@@ -81,7 +81,7 @@ RUN set -euxo pipefail \
         getcomposer.sh \
         /var/cache \
     && find /usr/libexec/git-core/* | grep -v git-remote-https | xargs rm -rf \
-    && find /bin -type l | grep -v /sh | xargs rm -f
+    && find /bin /usr/bin /usr/sbin -type f -o -type l | grep -Ev "^/usr/bin/(env|git$)|^/bin/busybox" | xargs rm -f
 
 WORKDIR /var/www
 
