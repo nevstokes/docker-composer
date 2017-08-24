@@ -3,17 +3,13 @@ FROM nevstokes/php-7.1:src AS src
 
 FROM alpine:3.6 AS build
 
-ENV PHP_INI_DIR=/usr/local/etc/php
-
 COPY --from=src /php.tar.xz .
 
 RUN set -euxo pipefail
 
 # Requirements
-RUN echo '@community http://dl-cdn.alpinelinux.org/alpine/edge/community' >> /etc/apk/repositories \
-    && apk --update add --no-cache \
+RUN apk --update add --no-cache \
         autoconf \
-        curl-dev \
         file \
         g++ \
         gcc \
@@ -23,11 +19,9 @@ RUN echo '@community http://dl-cdn.alpinelinux.org/alpine/edge/community' >> /et
         pkgconf \
         re2c \
         xz \
-        zlib-dev \
-        upx@community
+        zlib-dev
 
-RUN mkdir -p $PHP_INI_DIR/conf.d \
-    && mkdir -p /usr/src/php \
+RUN mkdir -p /usr/src/php \
     && tar -Jxf php.tar.xz -C /usr/src/php --strip-components=1
 
 # Apply stack smash protection to functions using local buffers and alloca()
@@ -41,10 +35,9 @@ RUN export CFLAGS="-fstack-protector-strong -fpic -fpie -Os" \
         LDFLAGS="-Wl,-O1 -Wl,--hash-style=both -pie" \
     && cd /usr/src/php \
     && ./configure \
-          --with-config-file-path="$PHP_INI_DIR" \
-          --with-config-file-scan-dir="$PHP_INI_DIR/conf.d" \
           --disable-all \
           --disable-cgi \
+          --disable-phpdbg \
           --enable-filter \
           --enable-hash \
           --enable-json \
@@ -55,41 +48,59 @@ RUN export CFLAGS="-fstack-protector-strong -fpic -fpie -Os" \
           --with-zlib \
     && make -j "$(getconf _NPROCESSORS_ONLN)" \
     && make install \
-    && { find /usr/local/bin /usr/local/sbin -type f -perm +0111 -exec strip --strip-all '{}' + || true; } \
     && make clean \
-    && upx -9 /usr/local/bin/php
+    && { find /usr/local/bin /usr/local/sbin -type f -perm +0111 -exec strip --strip-all '{}' + || true; }
 
 
 # Clean slate
-FROM alpine:3.6
+FROM alpine:3.6 AS libs
 
 ARG BUILD_DATE
 ARG VCS_REF
 ARG VCS_URL
 
-ENV PHP_INI_DIR=/usr/local/etc/php
-
 COPY --from=build /usr/local/bin/php /usr/local/bin/php
-COPY --from=build $PHP_INI_DIR/conf.d $PHP_INI_DIR/conf.d
 
 COPY getcomposer.sh .
 
 RUN set -euxo pipefail \
-    && apk --update add --no-cache \
+    && echo '@community http://dl-cdn.alpinelinux.org/alpine/edge/community' >> /etc/apk/repositories \
+   && apk --update add \
         ca-certificates \
         git \
         libressl \
+        upx@community \
     && ./getcomposer.sh \
-    && rm -rf \
-        getcomposer.sh \
-        /var/cache \
-    && find /usr/libexec/git-core/* | grep -v git-remote-https | xargs rm -rf \
-    && find /bin /usr/bin /usr/sbin -type f -o -type l | grep -Ev "^/usr/bin/(env|git$)|^/bin/busybox" | xargs rm -f
+    \
+    && scanelf --nobanner --needed /usr/bin/git | awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' | xargs apk add \
+    && scanelf --nobanner --needed /usr/local/bin/php | awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' | xargs apk add \
+    \
+    && upx -9 /usr/bin/git /usr/local/bin/php \
+    && apk del --purge apk-tools upx \
+    \
+    && tar -czf lib.tar.gz /lib/*.so.* \
+    && tar -czf usr-lib.tar.gz /usr/lib/libpcre.so.*
+
+
+FROM busybox
+
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VCS_URL
+
+COPY --from=libs /usr/local/bin/composer /usr/local/bin/php /usr/local/bin/
+
+COPY --from=libs /usr/bin/git /usr/bin/
+COPY --from=libs /usr/libexec/git-core/git-remote-https /usr/libexec/git-core/
+COPY --from=libs *.tar.gz /
+
+ENTRYPOINT ["/usr/local/bin/php", "/usr/local/bin/composer", "--ansi"]
+
+RUN tar -xzf /lib.tar.gz \
+    && tar -xzf /usr-lib.tar.gz \
+    && rm -rf /bin *.tar.gz
 
 WORKDIR /var/www
-
-ENTRYPOINT ["composer"]
-CMD ["--ansi"]
 
 LABEL maintainer="Nev Stokes <mail@nevstokes.com>" \
     description="PHP Composer" \

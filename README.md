@@ -1,13 +1,13 @@
 # PHP Composer Docker Image
 Composer Docker image for PHP dependency management
 
-This is an Alpine-based image with a custom build of PHP and configured solely for the purpose of running [Composer](https://getcomposer.org). This allows the resulting images to be far smaller than the official version but does mean that some extensions and scripts will be unavailable. It is recommended that the Composer flags `--ignore-platform-reqs` and `--no-scripts` be employed; any commands that need to be run pre- or post-install should be done in a separate entrypoint script.
+This is a custom build of PHP and is configured solely for the purpose of running [Composer](https://getcomposer.org). This allows the resulting images to be far smaller than the official version but does mean that some extensions and scripts will be unavailable. It is recommended that the Composer flags `--ignore-platform-reqs` and `--no-scripts` be employed; any commands that need to be run pre- or post-install should be done in a separate entrypoint script.
 
 There are three tags available:
 
 [![](https://images.microbadger.com/badges/version/nevstokes/composer.svg)](https://microbadger.com/images/nevstokes/composer "Get your own version badge on microbadger.com") [![](https://images.microbadger.com/badges/image/nevstokes/composer.svg)](https://microbadger.com/images/nevstokes/composer "Get your own image badge on microbadger.com")
 
-Basic Composer image with PHP built from the latest [source image](https://hub.docker.com/r/nevstokes/php-7.1/).
+[Busybox](https://www.busybox.net)-based basic Composer image with a [UPX](https://upx.github.io)-compressed PHP built from the latest [source image](https://hub.docker.com/r/nevstokes/php-7.1/).
 
 [![](https://images.microbadger.com/badges/version/nevstokes/composer:prestissimo.svg)](https://microbadger.com/images/nevstokes/composer:prestissimo "Get your own version badge on microbadger.com") [![](https://images.microbadger.com/badges/image/nevstokes/composer:prestissimo.svg)](https://microbadger.com/images/nevstokes/composer:prestissimo "Get your own image badge on microbadger.com")
 
