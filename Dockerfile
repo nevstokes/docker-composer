@@ -1,4 +1,4 @@
-FROM nevstokes/php-7.1:src AS src
+FROM nevstokes/php-src AS src
 
 
 FROM alpine:3.6 AS build
@@ -8,7 +8,7 @@ COPY --from=src /php.tar.xz .
 RUN set -euxo pipefail
 
 # Requirements
-RUN apk --update add --no-cache \
+RUN apk --update add \
         autoconf \
         file \
         g++ \
@@ -26,7 +26,7 @@ RUN mkdir -p /usr/src/php \
 
 # Apply stack smash protection to functions using local buffers and alloca()
 # Make PHP's main executable position-independent
-# Enable optimization (-Os — Optimize for size)
+# Enable optimization (-Os — Optimize for size)
 # Enable linker optimization
 # Adds GNU HASH segments to generated executables
 # https://github.com/docker-library/php/issues/272
@@ -60,6 +60,7 @@ ARG VCS_REF
 ARG VCS_URL
 
 COPY --from=build /usr/local/bin/php /usr/local/bin/php
+COPY --from=build /var/cache/apk /var/cache/apk
 
 COPY getcomposer.sh .
 
@@ -72,17 +73,13 @@ RUN set -euxo pipefail \
         upx@community \
     && ./getcomposer.sh \
     \
-    && scanelf --nobanner --needed /usr/bin/git | awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' | xargs apk add \
-    && scanelf --nobanner --needed /usr/local/bin/php | awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' | xargs apk add \
+    && scanelf --nobanner --needed /usr/bin/git /usr/local/bin/php | awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' | xargs apk add \
     \
-    && upx -9 /usr/bin/git /usr/local/bin/php \
-    && apk del --purge apk-tools upx \
-    \
-    && tar -czf lib.tar.gz /lib/*.so.* \
-    && tar -czf usr-lib.tar.gz /usr/lib/libpcre.so.*
+    && upx -9 /usr/bin/git /usr/libexec/git-core/git-remote-http
+    # Compressing /usr/local/bin/php results in Segfault for some reason?
 
 
-FROM busybox
+FROM nevstokes/busybox
 
 ARG BUILD_DATE
 ARG VCS_REF
@@ -92,13 +89,19 @@ COPY --from=libs /usr/local/bin/composer /usr/local/bin/php /usr/local/bin/
 
 COPY --from=libs /usr/bin/git /usr/bin/
 COPY --from=libs /usr/libexec/git-core/git-remote-https /usr/libexec/git-core/
-COPY --from=libs *.tar.gz /
+
+COPY --from=libs /lib/ld-musl-x86_64.so.1 /lib/libcrypto.so.41.0.1 /lib/libssl.so.43.0.2 /lib/libtls.so.15.0.4 /lib/libz.so.1.2.11 /lib/
+COPY --from=libs /usr/lib/libpcre.so.1.2.9 /usr/lib/
 
 ENTRYPOINT ["/usr/local/bin/php", "/usr/local/bin/composer", "--ansi"]
 
-RUN tar -xzf /lib.tar.gz \
-    && tar -xzf /usr-lib.tar.gz \
-    && rm -rf /bin *.tar.gz
+RUN ln -s /lib/ld-musl-x86_64.so.1 /usr/libc.musl-x86_64.so.1 \
+    && ln -s /lib/libcrypto.so.41.0.1 /lib/libcrypto.so.41 \
+    && ln -s /lib/libssl.so.43.0.2 /lib/libssl.so.43 \
+    && ln -s /lib/libtls.so.15.0.4 /lib/libtls.so.15 \
+    && ln -s /lib/libz.so.1.2.11 /lib/libz.so.1 \
+    \
+    && ln -s /usr/lib/libpcre.so.1.2.9 /usr/lib/libpcre.so.1
 
 WORKDIR /var/www
 
