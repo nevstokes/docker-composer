@@ -1,11 +1,12 @@
-FROM nevstokes/php-src AS src
+ARG PHP_VERSION=latest
+ARG FINAL_BASE_IMAGE=nevstokes/busybox
+
+FROM nevstokes/php-src:${PHP_VERSION} AS src
 
 
 FROM alpine:3.6 AS build
 
 COPY --from=src /php.tar.xz .
-
-RUN set -euxo pipefail
 
 # Requirements
 RUN apk --update add \
@@ -55,17 +56,12 @@ RUN export CFLAGS="-fstack-protector-strong -fpic -fpie -Os" \
 # Clean slate
 FROM alpine:3.6 AS libs
 
-ARG BUILD_DATE
-ARG VCS_REF
-ARG VCS_URL
-
-COPY --from=build /usr/local/bin/php /usr/local/bin/php
-COPY --from=build /var/cache/apk /var/cache/apk
+COPY --from=build /usr/local/bin/php /usr/local/bin/
+COPY --from=build /var/cache/apk /var/cache/
 
 COPY getcomposer.sh .
 
-RUN set -euxo pipefail \
-    && echo '@community http://dl-cdn.alpinelinux.org/alpine/edge/community' >> /etc/apk/repositories \
+RUN echo '@community http://dl-cdn.alpinelinux.org/alpine/edge/community' >> /etc/apk/repositories \
    && apk --update add \
         ca-certificates \
         git \
@@ -75,11 +71,26 @@ RUN set -euxo pipefail \
     \
     && scanelf --nobanner --needed /usr/bin/git /usr/local/bin/php | awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' | xargs apk add \
     \
-    && upx -9 /usr/bin/git /usr/libexec/git-core/git-remote-http
-    # Compressing /usr/local/bin/php results in Segfault for some reason?
+    && upx -9 /usr/local/bin/php /usr/bin/git /usr/libexec/git-core/git-remote-http
+
+# Remove what is no longer needed, which will clean up the shared library directories
+RUN apk del --purge alpine-keys apk-tools libc-utils musl-utils scanelf upx
+
+# With the exception of ld-musl, what is actually required is the shared library but named with just the major version
+# number, as per its associated symlink. These can then be copied across to the next stage. Copying symlinks across
+# effectively hardens them, duplicating the original shared object and inflating image size.
+RUN rm /lib/libc.musl-x86_64.so.1 \
+    && for lib_dir in $(find / -name lib*.so.* -type f -print | xargs -n 1 dirname | sort -u) \
+    ; do \
+        find $lib_dir -type l -name lib*.so -maxdepth 1 -print | xargs -rn 1 rm \
+        && find $lib_dir -type f -name lib*.so.* -maxdepth 1 -print > libs.$$ \
+        && find $lib_dir -type l -name lib*.so.* -maxdepth 1 -exec sh -c 'LINK=$(readlink -f $0) && ln -f $LINK $0' {} \; \
+        && cat libs.$$ | xargs rm \
+        && find $lib_dir -type l -maxdepth 1 -print | xargs -rn 1 rm; \
+    done
 
 
-FROM nevstokes/busybox
+FROM ${FINAL_BASE_IMAGE}
 
 ARG BUILD_DATE
 ARG VCS_REF
@@ -90,18 +101,10 @@ COPY --from=libs /usr/local/bin/composer /usr/local/bin/php /usr/local/bin/
 COPY --from=libs /usr/bin/git /usr/bin/
 COPY --from=libs /usr/libexec/git-core/git-remote-https /usr/libexec/git-core/
 
-COPY --from=libs /lib/ld-musl-x86_64.so.1 /lib/libcrypto.so.41.0.1 /lib/libssl.so.43.0.2 /lib/libtls.so.15.0.4 /lib/libz.so.1.2.11 /lib/
-COPY --from=libs /usr/lib/libpcre.so.1.2.9 /usr/lib/
+COPY --from=libs /lib/ld-musl-x86_64.so.1 /lib/libz.so.1 /lib/
+COPY --from=libs /usr/lib/*.so.* /usr/lib/
 
 ENTRYPOINT ["/usr/local/bin/php", "/usr/local/bin/composer", "--ansi"]
-
-RUN ln -s /lib/ld-musl-x86_64.so.1 /usr/libc.musl-x86_64.so.1 \
-    && ln -s /lib/libcrypto.so.41.0.1 /lib/libcrypto.so.41 \
-    && ln -s /lib/libssl.so.43.0.2 /lib/libssl.so.43 \
-    && ln -s /lib/libtls.so.15.0.4 /lib/libtls.so.15 \
-    && ln -s /lib/libz.so.1.2.11 /lib/libz.so.1 \
-    \
-    && ln -s /usr/lib/libpcre.so.1.2.9 /usr/lib/libpcre.so.1
 
 WORKDIR /var/www
 
